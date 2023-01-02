@@ -1,5 +1,6 @@
 pub const ADDRESS: u8 = 0x3B;
 
+#[derive(Debug, Clone)]
 pub enum Acceleration {
     Mpss,
     MilliG,
@@ -28,6 +29,7 @@ impl super::RegisterValue for Acceleration {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum AngularRate {
     Dps,
     Rps,
@@ -56,6 +58,7 @@ impl super::RegisterValue for AngularRate {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum EulerAngles {
     Degrees,
     Radians,
@@ -84,6 +87,7 @@ impl super::RegisterValue for EulerAngles {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Temperature {
     Celsius,
     Fahrenheit,

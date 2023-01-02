@@ -1,3 +1,5 @@
+use nalgebra::{Vector, Vector3};
+
 pub mod registers;
 
 #[derive(Debug)]
@@ -17,6 +19,9 @@ impl From<rppal::i2c::Error> for Error {
 pub struct Driver<'a> {
     i2c: &'a mut rppal::i2c::I2c,
     i2c_slave_address: u16,
+    euler_angles_unit: Option<registers::unit_sel::EulerAngles>,
+    acceleration_unit: Option<registers::unit_sel::Acceleration>,
+    temperature_unit: Option<registers::unit_sel::Temperature>,
 }
 
 impl<'a> Driver<'a> {
@@ -25,6 +30,9 @@ impl<'a> Driver<'a> {
         Self {
             i2c_slave_address,
             i2c,
+            euler_angles_unit: None,
+            acceleration_unit: None,
+            temperature_unit: None,
         }
     }
 
@@ -119,12 +127,19 @@ impl<'a> Driver<'a> {
         &mut self,
         acceleration_unit: registers::unit_sel::Acceleration,
     ) -> Result<(), Error> {
+        self.acceleration_unit = Some(acceleration_unit.clone());
         self.set_register_value(registers::unit_sel::ADDRESS, acceleration_unit)
     }
 
     #[allow(unused)]
     pub fn get_acceleration_unit(&mut self) -> Result<registers::unit_sel::Acceleration, Error> {
-        self.get_register_value(registers::unit_sel::ADDRESS)
+        if self.acceleration_unit.is_some() {
+            return Ok(self.acceleration_unit.as_ref().unwrap().clone());
+        }
+
+        self.acceleration_unit = Some(self.get_register_value(registers::unit_sel::ADDRESS)?);
+
+        Ok(self.acceleration_unit.as_ref().unwrap().clone())
     }
 
     #[allow(unused)]
@@ -136,9 +151,7 @@ impl<'a> Driver<'a> {
     }
 
     #[allow(unused)]
-    pub fn get_angular_rate_unit(
-        &mut self,
-    ) -> Result<registers::unit_sel::AngularRate, Error> {
+    pub fn get_angular_rate_unit(&mut self) -> Result<registers::unit_sel::AngularRate, Error> {
         self.get_register_value(registers::unit_sel::ADDRESS)
     }
 
@@ -147,12 +160,32 @@ impl<'a> Driver<'a> {
         &mut self,
         euler_angles_unit: registers::unit_sel::EulerAngles,
     ) -> Result<(), Error> {
+        self.euler_angles_unit = Some(euler_angles_unit.clone());
         self.set_register_value(registers::unit_sel::ADDRESS, euler_angles_unit)
     }
 
     #[allow(unused)]
     pub fn get_euler_angles_unit(&mut self) -> Result<registers::unit_sel::EulerAngles, Error> {
-        self.get_register_value(registers::unit_sel::ADDRESS)
+        if self.euler_angles_unit.is_some() {
+            return Ok(self.euler_angles_unit.as_ref().unwrap().clone());
+        }
+
+        self.euler_angles_unit = Some(self.get_register_value(registers::unit_sel::ADDRESS)?);
+
+        Ok(self.euler_angles_unit.as_ref().unwrap().clone())
+    }
+
+    #[allow(unused)]
+    pub fn get_linear_acceleration_unit(
+        &mut self,
+    ) -> Result<registers::unit_sel::Acceleration, Error> {
+        if self.acceleration_unit.is_some() {
+            return Ok(self.acceleration_unit.as_ref().unwrap().clone());
+        }
+
+        self.acceleration_unit = Some(self.get_register_value(registers::unit_sel::ADDRESS)?);
+
+        Ok(self.acceleration_unit.as_ref().unwrap().clone())
     }
 
     #[allow(unused)]
@@ -160,12 +193,19 @@ impl<'a> Driver<'a> {
         &mut self,
         temperature_unit: registers::unit_sel::Temperature,
     ) -> Result<(), Error> {
+        self.temperature_unit = Some(temperature_unit.clone());
         self.set_register_value(registers::unit_sel::ADDRESS, temperature_unit)
     }
 
     #[allow(unused)]
     pub fn get_temperature_unit(&mut self) -> Result<registers::unit_sel::Temperature, Error> {
-        self.get_register_value(registers::unit_sel::ADDRESS)
+        if self.temperature_unit.is_some() {
+            return Ok(self.temperature_unit.as_ref().unwrap().clone());
+        }
+
+        self.temperature_unit = Some(self.get_register_value(registers::unit_sel::ADDRESS)?);
+
+        Ok(self.temperature_unit.as_ref().unwrap().clone())
     }
 
     #[allow(unused)]
@@ -217,27 +257,32 @@ impl<'a> Driver<'a> {
     }
 
     #[allow(unused)]
-    pub fn get_system_calibration_status(&mut self) -> Result<registers::calib_stat::SysCalibStat, Error> {
+    pub fn get_system_calibration_status(
+        &mut self,
+    ) -> Result<registers::calib_stat::SysCalibStat, Error> {
         self.get_register_value(registers::calib_stat::ADDRESS)
     }
 
     #[allow(unused)]
-    pub fn get_gyroscope_calibration_status(&mut self) -> Result<registers::calib_stat::GyrCalibStat, Error> {
+    pub fn get_gyroscope_calibration_status(
+        &mut self,
+    ) -> Result<registers::calib_stat::GyrCalibStat, Error> {
         self.get_register_value(registers::calib_stat::ADDRESS)
     }
-
 
     #[allow(unused)]
-    pub fn get_accelerometer_calibration_status(&mut self) -> Result<registers::calib_stat::AccCalibStat, Error> {
+    pub fn get_accelerometer_calibration_status(
+        &mut self,
+    ) -> Result<registers::calib_stat::AccCalibStat, Error> {
         self.get_register_value(registers::calib_stat::ADDRESS)
     }
-
 
     #[allow(unused)]
-    pub fn get_magnetometer_calibration_status(&mut self) -> Result<registers::calib_stat::MagCalibStat, Error> {
+    pub fn get_magnetometer_calibration_status(
+        &mut self,
+    ) -> Result<registers::calib_stat::MagCalibStat, Error> {
         self.get_register_value(registers::calib_stat::ADDRESS)
     }
-
 
     #[allow(unused)]
     pub fn get_operating_mode(&mut self) -> Result<registers::opr_mode::OperatingMode, Error> {
@@ -312,5 +357,64 @@ impl<'a> Driver<'a> {
     #[allow(unused)]
     pub fn set_acceleration_z_offset(&mut self, acceleration_z_offset: i16) -> Result<(), Error> {
         self.write_i16(registers::ACC_OFFSET_Z_LSB, acceleration_z_offset)
+    }
+
+    #[allow(unused)]
+    pub fn get_euler_angles(&mut self) -> Result<Vector3<f64>, Error> {
+        let unit: registers::unit_sel::EulerAngles = self.get_euler_angles_unit()?;
+
+        let x: u16 = self.read_u16(registers::EUL_PITCH_LSB)?;
+        let y: u16 = self.read_u16(registers::EUL_ROLL_LSB)?;
+
+        let euler_angles: Vector3<f64> = Vector3::<f64>::new(x as f64, y as f64, 0.0);
+
+        match unit {
+            registers::unit_sel::EulerAngles::Degrees => Ok(euler_angles / 16.0),
+            registers::unit_sel::EulerAngles::Radians => Ok(euler_angles / 900.0),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn get_linear_acceleration(&mut self) -> Result<Vector3<f64>, Error> {
+        let unit: registers::unit_sel::Acceleration = self.get_acceleration_unit()?;
+
+        let x: u16 = self.read_u16(registers::LIA_DATA_X_LSB)?;
+        let y: u16 = self.read_u16(registers::LIA_DATA_Y_LSB)?;
+        let z: u16 = self.read_u16(registers::LIA_DATA_Z_LSB)?;
+
+        let acceleration: Vector3<f64> = Vector3::<f64>::new(x as f64, y as f64, z as f64);
+
+        match unit {
+            registers::unit_sel::Acceleration::MilliG => Ok(acceleration / 1.0),
+            registers::unit_sel::Acceleration::Mpss => Ok(acceleration / 100.0),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn get_gravity(&mut self) -> Result<Vector3<f64>, Error> {
+        let unit: registers::unit_sel::Acceleration = self.get_acceleration_unit()?;
+
+        let x: u16 = self.read_u16(registers::GRV_DATA_X_LSB)?;
+        let y: u16 = self.read_u16(registers::GRV_DATA_Y_LSB)?;
+        let z: u16 = self.read_u16(registers::GRV_DATA_Z_LSB)?;
+
+        let acceleration: Vector3<f64> = Vector3::<f64>::new(x as f64, y as f64, z as f64);
+
+        match unit {
+            registers::unit_sel::Acceleration::MilliG => Ok(acceleration / 1.0),
+            registers::unit_sel::Acceleration::Mpss => Ok(acceleration / 100.0),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn get_temperature(&mut self) -> Result<f64, Error> {
+        let unit: registers::unit_sel::Temperature = self.get_temperature_unit()?;
+
+        let temperature: f64 = self.read_u16(registers::TEMP)? as f64;
+
+        match unit {
+            registers::unit_sel::Temperature::Celsius => Ok(temperature / 1.0),
+            registers::unit_sel::Temperature::Fahrenheit => Ok(temperature * 2.0),
+        }
     }
 }

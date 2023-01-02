@@ -21,7 +21,7 @@ enum MQThreadMessage {
 #[derive(Parser, Debug, Clone)]
 #[command(author="Luke A.C.A. Rieff", version, about="Kinematics Service for Unicorn", long_about = None)]
 struct Arguments {
-    #[clap(long, default_value = "./config.toml")]
+    #[clap(long, default_value = "./env/config.toml")]
     config: String,
     command: String,
 }
