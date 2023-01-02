@@ -1,0 +1,15 @@
+[rabbitmq]
+hostname = ""
+port = 5672
+username = ""
+password = ""
+exchange = ""
+
+[bno055]
+accelerometer_radius = 0
+gyroscope_offset_z = 0
+gyroscope_offset_y = 0
+gyroscope_offset_x = 0
+accelerometer_offset_z = 0
+accelerometer_offset_y = 0
+accelerometer_offset_x = 0
