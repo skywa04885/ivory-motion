@@ -6,6 +6,7 @@ password = ""
 exchange = ""
 
 [bno055]
+i2c_address=41
 accelerometer_radius = 0
 gyroscope_offset_z = 0
 gyroscope_offset_y = 0

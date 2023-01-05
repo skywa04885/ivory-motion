@@ -1,17 +1,16 @@
 use nalgebra::Vector3;
 
-pub const ABSOLUTE_ORIENTATION_ROUTING_KEY: &'static str = "sensors.imu.absolute_orientation";
+pub const EULER_ANGLES_ROUTING_KEY: &'static str = "sensors.imu.euler_angles";
 
 #[derive(serde::Serialize)]
-pub struct AbsoluteOrientationMessage {
-    absolute_orientation: Vector3<f64>,
+pub struct EulerAnglesMessage {
+    euler_angles: Vector3<f64>,
+    time: u128,
 }
 
-impl AbsoluteOrientationMessage {
-    pub fn new(absolute_orientation: Vector3<f64>) -> Self {
-        Self {
-            absolute_orientation,
-        }
+impl EulerAnglesMessage {
+    pub fn new(euler_angles: Vector3<f64>, time: u128) -> Self {
+        Self { euler_angles, time }
     }
 }
 
@@ -20,11 +19,15 @@ pub const ANGULAR_VELOCITY_ROUTING_KEY: &'static str = "sensors.imu.angular_velo
 #[derive(serde::Serialize)]
 pub struct AngularVelocityMessage {
     angular_velocity: Vector3<f64>,
+    time: u128,
 }
 
 impl AngularVelocityMessage {
-    pub fn new(angular_velocity: Vector3<f64>) -> Self {
-        Self { angular_velocity }
+    pub fn new(angular_velocity: Vector3<f64>, time: u128) -> Self {
+        Self {
+            angular_velocity,
+            time,
+        }
     }
 }
 
@@ -46,12 +49,14 @@ pub const LINEAR_ACCELERATION_ROUTING_KEY: &'static str = "sensors.imu.linear_ac
 #[derive(serde::Serialize)]
 pub struct LinearAccelerationMessage {
     linear_acceleration: Vector3<f64>,
+    time: u128,
 }
 
 impl LinearAccelerationMessage {
-    pub fn new(linear_acceleration: Vector3<f64>) -> Self {
+    pub fn new(linear_acceleration: Vector3<f64>, time: u128) -> Self {
         Self {
             linear_acceleration,
+            time,
         }
     }
 }
@@ -61,11 +66,12 @@ pub const GRAVITY_ROUTING_KEY: &'static str = "sensors.imu.gravity";
 #[derive(serde::Serialize)]
 pub struct GravityMessage {
     gravity: Vector3<f64>,
+    time: u128,
 }
 
 impl GravityMessage {
-    pub fn new(gravity: Vector3<f64>) -> Self {
-        Self { gravity }
+    pub fn new(gravity: Vector3<f64>, time: u128) -> Self {
+        Self { gravity, time }
     }
 }
 

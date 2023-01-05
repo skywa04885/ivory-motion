@@ -8,8 +8,9 @@ mod config;
 mod drivers;
 mod messages;
 
+#[derive(Debug)]
 enum MQThreadMessage {
-    ImuAbsoluteOrientation(Vector3<f64>),
+    ImuEulerAngles(Vector3<f64>),
     ImuAngularVelocity(Vector3<f64>),
     ImuAcceleration(Vector3<f64>),
     ImuLinearAcceleration(Vector3<f64>),
@@ -88,18 +89,23 @@ fn spawn_mq_thread(
 
             // Processes the commands from the channel.
             while let Some(command) = mq_thread_command_rx.recv().await {
+                let time: u128 = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis();
                 match command {
                     // Absolute orientation.
-                    MQThreadMessage::ImuAbsoluteOrientation(absolute_orientation) => {
-                        let message: messages::sensors::bno055::AbsoluteOrientationMessage =
-                            messages::sensors::bno055::AbsoluteOrientationMessage::new(
+                    MQThreadMessage::ImuEulerAngles(absolute_orientation) => {
+                        let message: messages::sensors::bno055::EulerAnglesMessage =
+                            messages::sensors::bno055::EulerAnglesMessage::new(
                                 absolute_orientation,
+                                time,
                             );
                         let encoded_message: Vec<u8> = serde_json::to_vec(&message).unwrap();
                         lapin_channel
                             .basic_publish(
                                 &config.rabbitmq.exchange,
-                                messages::sensors::bno055::ABSOLUTE_ORIENTATION_ROUTING_KEY,
+                                messages::sensors::bno055::EULER_ANGLES_ROUTING_KEY,
                                 lapin::options::BasicPublishOptions::default(),
                                 &encoded_message,
                                 lapin::BasicProperties::default(),
@@ -109,9 +115,10 @@ fn spawn_mq_thread(
                     }
                     // Angular velocity.
                     MQThreadMessage::ImuAngularVelocity(angular_velocity) => {
-                        let message: messages::sensors::bno055::AngularVelocityMessage =
-                            messages::sensors::bno055::AngularVelocityMessage::new(
+                        let message: messages::sensors::bno055::LinearAccelerationMessage =
+                            messages::sensors::bno055::LinearAccelerationMessage::new(
                                 angular_velocity,
+                                time,
                             );
                         let encoded_message: Vec<u8> = serde_json::to_vec(&message).unwrap();
                         lapin_channel
@@ -146,6 +153,7 @@ fn spawn_mq_thread(
                         let message: messages::sensors::bno055::LinearAccelerationMessage =
                             messages::sensors::bno055::LinearAccelerationMessage::new(
                                 linear_acceleration,
+                                time,
                             );
                         let encoded_message: Vec<u8> = serde_json::to_vec(&message).unwrap();
                         lapin_channel
@@ -162,7 +170,7 @@ fn spawn_mq_thread(
                     // Gravity.
                     MQThreadMessage::ImuGravity(gravity) => {
                         let message: messages::sensors::bno055::GravityMessage =
-                            messages::sensors::bno055::GravityMessage::new(gravity);
+                            messages::sensors::bno055::GravityMessage::new(gravity, time);
                         let encoded_message: Vec<u8> = serde_json::to_vec(&message).unwrap();
                         lapin_channel
                             .basic_publish(
@@ -218,6 +226,10 @@ fn bno055_driver_setup(
     config: &config::Config,
     driver: &mut drivers::bno055::Driver,
 ) -> Result<(), drivers::bno055::Error> {
+    // Resets the system, and sets the power mode to normal.
+    driver.reset()?;
+    driver.set_power_mode(drivers::bno055::registers::power_mode::PowerMode::Normal)?;
+
     // Sets the units.
     driver.set_acceleration_unit(drivers::bno055::registers::unit_sel::Acceleration::Mpss)?;
     driver.set_temperature_unit(drivers::bno055::registers::unit_sel::Temperature::Celsius)?;
@@ -225,13 +237,13 @@ fn bno055_driver_setup(
     driver.set_euler_angles_unit(drivers::bno055::registers::unit_sel::EulerAngles::Radians)?;
 
     // Loads the values from calibration.
-    driver.set_accelerometer_radius(config.bno055.accelerometer_radius)?;
     driver.set_gyroscope_x_offset(config.bno055.gyroscope_offset_x)?;
     driver.set_gyroscope_y_offset(config.bno055.gyroscope_offset_y)?;
     driver.set_gyroscope_z_offset(config.bno055.gyroscope_offset_z)?;
     driver.set_acceleration_x_offset(config.bno055.accelerometer_offset_x)?;
     driver.set_acceleration_y_offset(config.bno055.accelerometer_offset_y)?;
     driver.set_acceleration_z_offset(config.bno055.accelerometer_offset_z)?;
+    driver.set_accelerometer_radius(160)?;
 
     // Changes the operating mode to inertial measurement unit.
     driver.set_operating_mode(drivers::bno055::registers::opr_mode::OperatingMode::Imu)?;
@@ -242,10 +254,45 @@ fn bno055_driver_setup(
 fn spawn_imu_thread(
     arguments: Arguments,
     mq_thread_command_tx: std::sync::Arc<tokio::sync::mpsc::Sender<MQThreadMessage>>,
-    bno055_driver: drivers::bno055::Driver,
+    mut bno055_driver: drivers::bno055::Driver,
+    mut bno055_interrupt_pin: rppal::gpio::InputPin,
 ) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        let euler_angles: Vector3<f64> = match bno055_driver.get_euler_angles() {
+            Ok(euler_angles) => euler_angles,
+            Err(error) => {
+                error!("Failed to read euler angles: {:?}", error);
+                return;
+            }
+        };
+
+        let linear_acceleration: Vector3<f64> = match bno055_driver.get_linear_acceleration() {
+            Ok(linear_acceleration) => linear_acceleration,
+            Err(error) => {
+                error!("Failed to read linear acceleration: {:?}", error);
+                return;
+            }
+        };
+
+        let gravity: Vector3<f64> = match bno055_driver.get_gravity() {
+            Ok(gravity) => gravity,
+            Err(error) => {
+                error!("Failed to read gravity: {:?}", error);
+                return;
+            }
+        };
+
+        mq_thread_command_tx
+            .blocking_send(MQThreadMessage::ImuEulerAngles(euler_angles))
+            .unwrap();
+        mq_thread_command_tx
+            .blocking_send(MQThreadMessage::ImuLinearAcceleration(linear_acceleration))
+            .unwrap();
+        mq_thread_command_tx
+            .blocking_send(MQThreadMessage::ImuGravity(gravity))
+            .unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
     })
 }
 
@@ -255,45 +302,25 @@ fn calibrate_accelerometer(driver: &mut drivers::bno055::Driver) {
         == drivers::bno055::registers::calib_stat::AccCalibStat::FullyCalibrated
     {
         info!("Accelerometer is fully calibrated, skipping procedure.");
+        return;
     }
 
-    let steps: [&'static str; 6] = [
-        "Orient the module with the upside (where the chip is located) towards yourself.",
-        "Rotate the module 90 degrees clockwise from the top perspective.",
-        "Rotate the module another 90 degrees clockwise from the top perspective.",
-        "Rotate the module 90 degrees counter-clockwise from the right-side perspective.",
-        "Rotate the module 90 degrees clockwise from the front perspective.",
-        "Rotate the module 90 degrees clockwise from the front perspective once more.",
-    ];
-
-    let stdin: std::io::Stdin = std::io::stdin();
-
-    info!("We're about to calibrate the accelerometer, please do exactly what you are told.");
+    info!("Move the module around and make sure you cover all perpendicular axises.");
 
     loop {
-        for step in steps {
-            info!("{}", step);
-            info!("Press enter once ready: ");
-
-            let mut line = String::new();
-            stdin.lock().read_line(&mut line).unwrap();
-
-            for seconds_passed in 0..3 {
-                info!("({} seconds remaining) Keep it steady!", 3 - seconds_passed);
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
-        }
-
         let calib_status: drivers::bno055::registers::calib_stat::AccCalibStat =
             driver.get_accelerometer_calibration_status().unwrap();
+
+        info!(
+            "Current accelerometer calibration status: {:?}",
+            calib_status
+        );
+
         if calib_status == drivers::bno055::registers::calib_stat::AccCalibStat::FullyCalibrated {
             break;
         }
 
-        info!(
-            "Calibration failed, calibration status: \"{:?}\". Try again.",
-            calib_status
-        );
+        std::thread::sleep(std::time::Duration::from_millis(700));
     }
 }
 
@@ -303,28 +330,22 @@ fn calibrate_gyroscope(driver: &mut drivers::bno055::Driver) {
         == drivers::bno055::registers::calib_stat::GyrCalibStat::FullyCalibrated
     {
         info!("Gyroscope is fully calibrated, skipping procedure.");
+        return;
     }
 
     info!("Calibrating the gyroscope is quite simple, just place the module in a stable position.");
 
     loop {
-        info!("Press enter once ready: ");
-
-        for seconds_passed in 0..3 {
-            println!("({} seconds remaining) Keep it stable!", 3 - seconds_passed);
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-
         let calib_status: drivers::bno055::registers::calib_stat::GyrCalibStat =
             driver.get_gyroscope_calibration_status().unwrap();
+
+        info!("Current gyroscope calibration status: {:?}", calib_status);
+
         if calib_status == drivers::bno055::registers::calib_stat::GyrCalibStat::FullyCalibrated {
             break;
         }
 
-        info!(
-            "Calibration failed, calibration status: \"{:?}\". Try again.",
-            calib_status
-        );
+        std::thread::sleep(std::time::Duration::from_millis(700));
     }
 }
 
@@ -333,20 +354,58 @@ fn main() {
 
     // Parses the arguments and the configuration.
     let arguments: Arguments = Arguments::parse();
-    let config: config::Config = config::Config::from_file(&arguments.config).unwrap();
+    let mut config: config::Config = config::Config::from_file(&arguments.config).unwrap();
 
     // Creates the handle for the I2C peripheral.
-    let mut i2c: rppal::i2c::I2c = rppal::i2c::I2c::new().unwrap();
+    let i2c: rppal::i2c::I2c = rppal::i2c::I2c::with_bus(3).unwrap();
 
     // Creates the BNO055 driver and performs it's setup.
-    let mut bno055_driver: drivers::bno055::Driver = drivers::bno055::Driver::new(0x28, &mut i2c);
+    let mut bno055_interrupt_pin = rppal::gpio::Gpio::new()
+        .unwrap()
+        .get(4)
+        .unwrap()
+        .into_input_pulldown();
+    bno055_interrupt_pin
+        .set_interrupt(rppal::gpio::Trigger::RisingEdge)
+        .unwrap();
+    let mut bno055_driver: drivers::bno055::Driver =
+        drivers::bno055::Driver::new(config.bno055.i2c_address, i2c);
     bno055_driver_setup(&config, &mut bno055_driver).unwrap();
+
+    // Gets information about the BNO055.
+    info!("{:?}", bno055_driver.get_identifiers().unwrap());
+    info!(
+        "System calibration: {:?}, Gyroscope calibration: {:?}, Accelerometer calibration: {:?}",
+        bno055_driver.get_system_calibration_status(),
+        bno055_driver.get_gyroscope_calibration_status(),
+        bno055_driver.get_accelerometer_calibration_status()
+    );
 
     // Handles the command.
     match arguments.command.as_str() {
         "calibrate" => {
             calibrate_accelerometer(&mut bno055_driver);
             calibrate_gyroscope(&mut bno055_driver);
+
+            bno055_driver
+                .set_operating_mode(drivers::bno055::registers::opr_mode::OperatingMode::ConfigMode)
+                .unwrap();
+
+            config.bno055.accelerometer_offset_x =
+                bno055_driver.get_acceleration_x_offset().unwrap();
+            config.bno055.accelerometer_offset_y =
+                bno055_driver.get_acceleration_y_offset().unwrap();
+            config.bno055.accelerometer_offset_z =
+                bno055_driver.get_acceleration_z_offset().unwrap();
+            config.bno055.gyroscope_offset_x = bno055_driver.get_gyroscope_x_offset().unwrap();
+            config.bno055.gyroscope_offset_y = bno055_driver.get_gyroscope_y_offset().unwrap();
+            config.bno055.gyroscope_offset_z = bno055_driver.get_gyroscope_z_offset().unwrap();
+
+            info!(
+                "Saving the updated BNO055 configuration to file: \"{}\"",
+                arguments.config
+            );
+            config.to_file(&arguments.config).unwrap();
         }
         "run" => {
             let (mq_thread_command_tx, mq_thread_command_rx) =
@@ -361,6 +420,7 @@ fn main() {
                     arguments.clone(),
                     mq_thread_command_tx.clone(),
                     bno055_driver,
+                    bno055_interrupt_pin,
                 ),
             );
 

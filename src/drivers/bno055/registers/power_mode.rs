@@ -1,4 +1,4 @@
-pub const ADDRESS: u8 = 0x3D;
+pub const ADDRESS: u8 = 0x3E;
 
 pub enum PowerMode {
     Normal,
@@ -8,7 +8,7 @@ pub enum PowerMode {
 
 impl super::RegisterValue for PowerMode {
     fn reg_from_u8(mut value: u8) -> Result<Self, super::super::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::Normal),

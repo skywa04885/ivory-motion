@@ -31,7 +31,7 @@ pub struct Config {
 
 #[derive(Debug, Clone, serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct Bno055 {
-    pub accelerometer_radius: i16,
+    pub i2c_address: u16,
     pub gyroscope_offset_z: i16,
     pub gyroscope_offset_y: i16,
     pub gyroscope_offset_x: i16,
@@ -55,5 +55,13 @@ impl Config {
         let config: Config = toml::from_slice::<Config>(&file_buffer)?;
 
         Ok(config)
+    }
+
+    pub fn to_file(&self, file: &str) -> Result<(), Error> {
+        let file_buffer: Vec<u8> = toml::to_vec(self)?;
+
+        std::fs::write(file, &file_buffer)?;
+
+        Ok(())
     }
 }

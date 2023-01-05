@@ -8,7 +8,7 @@ pub enum Acceleration {
 
 impl super::RegisterValue for Acceleration {
     fn reg_from_u8(mut value: u8) -> Result<Self, super::super::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::Mpss),
@@ -37,7 +37,7 @@ pub enum AngularRate {
 
 impl super::RegisterValue for AngularRate {
     fn reg_from_u8(mut value: u8) -> Result<Self, super::super::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::Dps),
@@ -66,7 +66,7 @@ pub enum EulerAngles {
 
 impl super::RegisterValue for EulerAngles {
     fn reg_from_u8(mut value: u8) -> Result<Self, super::super::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::Degrees),
@@ -95,7 +95,7 @@ pub enum Temperature {
 
 impl super::RegisterValue for Temperature {
     fn reg_from_u8(mut value: u8) -> Result<Self, super::super::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::Celsius),

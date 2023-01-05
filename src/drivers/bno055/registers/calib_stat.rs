@@ -14,7 +14,7 @@ impl super::RegisterValue for SysCalibStat {
     }
 
     fn reg_from_u8(mut value: u8) -> Result<Self, crate::drivers::bno055::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::NotCalibrated),
@@ -49,7 +49,7 @@ impl super::RegisterValue for GyrCalibStat {
     }
 
     fn reg_from_u8(mut value: u8) -> Result<Self, crate::drivers::bno055::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::NotCalibrated),
@@ -84,7 +84,7 @@ impl super::RegisterValue for AccCalibStat {
     }
 
     fn reg_from_u8(mut value: u8) -> Result<Self, crate::drivers::bno055::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::NotCalibrated),
@@ -119,7 +119,7 @@ impl super::RegisterValue for MagCalibStat {
     }
 
     fn reg_from_u8(mut value: u8) -> Result<Self, crate::drivers::bno055::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::NotCalibrated),

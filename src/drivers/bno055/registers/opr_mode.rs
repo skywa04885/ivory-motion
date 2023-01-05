@@ -1,4 +1,4 @@
-pub const ADDRESS: u8 = 0x3E;
+pub const ADDRESS: u8 = 0x3D;
 
 #[derive(PartialEq)]
 pub enum OperatingMode {
@@ -23,7 +23,7 @@ impl super::RegisterValue for OperatingMode {
     }
 
     fn reg_from_u8(mut value: u8) -> Result<Self, super::super::Error> {
-        value &= !Self::reg_mask();
+        value &= Self::reg_mask();
 
         match value {
             0b00000000 => Ok(Self::ConfigMode),
