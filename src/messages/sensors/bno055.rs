@@ -1,6 +1,6 @@
 use nalgebra::Vector3;
 
-pub const EULER_ANGLES_ROUTING_KEY: &'static str = "sensors.imu.euler_angles";
+pub const EULER_ANGLES_ROUTING_KEY: &'static str = "sensors.streams.euler_angles";
 
 #[derive(serde::Serialize)]
 pub struct EulerAnglesMessage {
@@ -14,7 +14,7 @@ impl EulerAnglesMessage {
     }
 }
 
-pub const ANGULAR_VELOCITY_ROUTING_KEY: &'static str = "sensors.imu.angular_velocity";
+pub const ANGULAR_VELOCITY_ROUTING_KEY: &'static str = "sensors.streams.angular_velocity";
 
 #[derive(serde::Serialize)]
 pub struct AngularVelocityMessage {
@@ -31,7 +31,7 @@ impl AngularVelocityMessage {
     }
 }
 
-pub const ACCELERATION_ROUTING_KEY: &'static str = "sensors.imu.acceleration";
+pub const ACCELERATION_ROUTING_KEY: &'static str = "sensors.streams.acceleration";
 
 #[derive(serde::Serialize)]
 pub struct AccelerationMessage {
@@ -44,7 +44,7 @@ impl AccelerationMessage {
     }
 }
 
-pub const LINEAR_ACCELERATION_ROUTING_KEY: &'static str = "sensors.imu.linear_acceleration";
+pub const LINEAR_ACCELERATION_ROUTING_KEY: &'static str = "sensors.streams.linear_acceleration";
 
 #[derive(serde::Serialize)]
 pub struct LinearAccelerationMessage {
@@ -61,7 +61,7 @@ impl LinearAccelerationMessage {
     }
 }
 
-pub const GRAVITY_ROUTING_KEY: &'static str = "sensors.imu.gravity";
+pub const GRAVITY_ROUTING_KEY: &'static str = "sensors.streams.gravity";
 
 #[derive(serde::Serialize)]
 pub struct GravityMessage {
@@ -88,7 +88,7 @@ impl MagneticFieldMessage {
     }
 }
 
-pub const TEMPERATURE_ROUTING_KEY: &'static str = "sensors.imu.temperature";
+pub const TEMPERATURE_ROUTING_KEY: &'static str = "sensors.streams.temperature";
 
 #[derive(serde::Serialize)]
 pub struct TemperatureMessage {

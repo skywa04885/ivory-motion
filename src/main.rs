@@ -292,7 +292,7 @@ fn spawn_imu_thread(
             .blocking_send(MQThreadMessage::ImuGravity(gravity))
             .unwrap();
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(200));
     })
 }
 
